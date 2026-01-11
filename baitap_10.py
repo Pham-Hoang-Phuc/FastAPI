@@ -1,74 +1,96 @@
-from datetime import datetime, timedelta
-from fastapi import FastAPI, HTTPException, Query, Path, Body, Cookie, Header
-from enum import Enum
+from fastapi import FastAPI, HTTPException, Query, Path, Body, Header, Cookie
 from pydantic import BaseModel, Field
+from enum import Enum
+from datetime import datetime, timedelta
+
+
+app = FastAPI()
 
 class Guest(BaseModel):
     full_name: str = Field(..., min_length=3)
-    email: str = Field(...)
-    check_in_time: datetime = Field(...)
-    session_duration: timedelta = Field(...)
-    
+    email: str
+    check_in_time: datetime
+    session_duration: timedelta
+
     model_config = {
-        "json_schema_extra": {
+        'json_schema_extra' : {
             "examples": [
                 {
-                    "full_name": "Hoang Phuc",
-                    "email": "__@gmail.com",
-                    "check_in_time": "2026-01-11T10:00:00",
+                    "full_name": "Phuc",
+                    "email": "phuc@gmail.com",
+                    "check_in_time": datetime.now(),
                     "session_duration": "PT2H30M"
                 }
             ]
         }
     }
 
-app = FastAPI()
+from datetime import datetime, timedelta
 
-db_guests = []
+db_guests = [
+    {
+        "full_name": "Nguyễn Văn An",
+        "email": "an.nguyen@example.com",
+        "check_in_time": datetime(2026, 1, 11, 8, 30, 0),
+        "session_duration": timedelta(hours=2)
+    },
+    {
+        "full_name": "Trần Thị Bình",
+        "email": "binh.tran@gmail.com",
+        "check_in_time": datetime(2026, 1, 11, 9, 15, 0),
+        "session_duration": timedelta(minutes=45)
+    },
+    {
+        "full_name": "Lê Minh Cường",
+        "email": "cuonglm@company.vn",
+        "check_in_time": datetime(2026, 1, 11, 10, 0, 0),
+        "session_duration": timedelta(hours=1, minutes=30)
+    },
+    {
+        "full_name": "Phạm Hồng Đào",
+        "email": "daoph@outlook.com",
+        "check_in_time": datetime(2026, 1, 11, 13, 45, 0),
+        "session_duration": timedelta(hours=3)
+    },
+    {
+        "full_name": "Hoàng Anh Tuấn",
+        "email": "tuanha@hcmut.edu.vn",
+        "check_in_time": datetime(2026, 1, 11, 15, 20, 0),
+        "session_duration": timedelta(minutes=120)
+    }
+]
 
-@app.post('/register')
-async def register(
-    guest: Guest
-):
-    new_guests_data = guest.model_dump()
-    db_guests.append(new_guests_data)
+@app.post("/register")
+async def register(guest: Guest):
+    new_guest = guest.model_dump()
+    db_guests.append(new_guest)
 
     return {
-        "message": "Đăng ký thành công",
-        "guest_info": new_guests_data
+        "message": "register succesfully",
+        "result": new_guest
     }
 
 @app.get("/event-info")
-async def check_information(
-    x_event_key: str = Header(...),
-    last_visit: str | None = Cookie(None)
+async def check_info_event(
+    x_event_key = Header(...),
+    last_visit = Cookie(None)
 ):
-    SECRET_KEY = "TECH_2026"
+    SECRET_KEY = "phuc"
 
     if x_event_key != SECRET_KEY:
-        raise HTTPException(status_code=404, detail="YOU DON'T HAVE PERMISTION TO CONNECT THIS SITE")
-    
-    return {
-        "event_name": "Hội thảo Công nghệ 2026",
-        "location": "Trung tâm Hội nghị Quốc gia",
-        "your_last_visit_cookie": last_visit,
-        "status": "Authorized"
+        raise HTTPException(status_code=403, detail="YOU DON'T HAVE PERMISSION TO ENTER THIS EVEN")
+
+    return{
+        "message": "enter successfully",
+        "Cookie": last_visit
     }
 
 @app.get("/guests/filter")
-async def filter_guests_by_time(
-    # Khai báo start_date là một Query parameter bắt buộc, kiểu datetime
-    start_date: datetime = Query(..., description="Lọc khách mời check-in sau thời điểm này (định dạng: YYYY-MM-DDTHH:MM:SS)")
-):
-    # Sử dụng List Comprehension để lọc
-    # Lưu ý: Trong db_guests, check_in_time đang là đối tượng datetime (nhờ Pydantic parse từ POST)
-    filtered_guests = [
-        guest for guest in db_guests 
-        if guest["check_in_time"] > start_date
+async def filter_guests(start_date: datetime = Query(..., description="YYYY-MM-DD")):
+
+    guests = [
+        guest for guest in db_guests
+        if start_date <= guest["check_in_time"]
     ]
     
-    return {
-        "filter_after": start_date,
-        "count": len(filtered_guests),
-        "results": filtered_guests
-    }
+    return guests
